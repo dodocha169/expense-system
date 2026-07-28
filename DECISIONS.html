@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>&#x5224;&#x65ad;&#x8a18;&#x9332;</title>
+            <style>
+/* From extension vscode.github */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.vscode-dark img[src$=\#gh-light-mode-only],
+.vscode-light img[src$=\#gh-dark-mode-only],
+.vscode-high-contrast:not(.vscode-high-contrast-light) img[src$=\#gh-light-mode-only],
+.vscode-high-contrast-light img[src$=\#gh-dark-mode-only] {
+	display: none;
+}
+
+</style>
+            
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item {
+    list-style-type: none;
+}
+
+.task-list-item-checkbox {
+    margin-left: -20px;
+    vertical-align: middle;
+    pointer-events: none;
+}
+</style>
+<style>
+:root {
+  --color-note: #0969da;
+  --color-tip: #1a7f37;
+  --color-warning: #9a6700;
+  --color-severe: #bc4c00;
+  --color-caution: #d1242f;
+  --color-important: #8250df;
+}
+
+</style>
+<style>
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-note: #2f81f7;
+    --color-tip: #3fb950;
+    --color-warning: #d29922;
+    --color-severe: #db6d28;
+    --color-caution: #f85149;
+    --color-important: #a371f7;
+  }
+}
+
+</style>
+<style>
+.markdown-alert {
+  padding: 0.5rem 1rem;
+  margin-bottom: 16px;
+  color: inherit;
+  border-left: .25em solid #888;
+}
+
+.markdown-alert>:first-child {
+  margin-top: 0
+}
+
+.markdown-alert>:last-child {
+  margin-bottom: 0
+}
+
+.markdown-alert .markdown-alert-title {
+  display: flex;
+  font-weight: 500;
+  align-items: center;
+  line-height: 1
+}
+
+.markdown-alert .markdown-alert-title .octicon {
+  margin-right: 0.5rem;
+  display: inline-block;
+  overflow: visible !important;
+  vertical-align: text-bottom;
+  fill: currentColor;
+}
+
+.markdown-alert.markdown-alert-note {
+  border-left-color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-note .markdown-alert-title {
+  color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-important {
+  border-left-color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-important .markdown-alert-title {
+  color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-warning {
+  border-left-color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-warning .markdown-alert-title {
+  color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-tip {
+  border-left-color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-tip .markdown-alert-title {
+  color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-caution {
+  border-left-color: var(--color-caution);
+}
+
+.markdown-alert.markdown-alert-caution .markdown-alert-title {
+  color: var(--color-caution);
+}
+
+</style>
+        
+        </head>
+        <body class="vscode-body vscode-light">
+            <span id="markdown-mermaid" aria-hidden="true" data-config="{&quot;darkModeTheme&quot;:&quot;vscode&quot;,&quot;lightModeTheme&quot;:&quot;vscode&quot;,&quot;maxTextSize&quot;:50000,&quot;clickDrag&quot;:&quot;alt&quot;,&quot;showControls&quot;:&quot;onHoverOrFocus&quot;,&quot;resizable&quot;:true,&quot;maxHeight&quot;:&quot;&quot;}"></span>
+				<h1 id="判断記録">判断記録</h1>
+<p>この演習であなたが下した判断を記録してください。
+<strong>このファイルはあなたが書いてください。AIに代筆させないでください。</strong>
+評価対象は「正しい方針を選べたか」ではなく、**「根拠を持って決められたか」**です。</p>
+<hr>
+<h2 id="1-調査結果のサマリ">1. 調査結果のサマリ</h2>
+<p>どの問い合わせが、どの原因から来ていたか。同じ原因から出ていた症状はまとめて書いてください。</p>
+<table>
+<thead>
+<tr>
+<th>問い合わせ番号</th>
+<th>症状</th>
+<th>特定した原因</th>
+<th>再現方法</th>
+<th>計測値</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>INQ-001</td>
+<td>(障害)月末に画面が遅い</td>
+<td></td>
+<td></td>
+<td>改修前 P95 = ○秒</td>
+</tr>
+<tr>
+<td>INQ-002</td>
+<td>(障害)レシート写真を添付して申請すると固まる</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>INQ-003</td>
+<td>(障害)複数回数操作時にシステムが落ちる</td>
+<td>app/server.jsのwriteAuditLog()内で監査ログの書き込みを行う際、7回に1回'v2:' + payloadをJSON.parsしており、SyntaxErrorを出力していた。setTimeoutのコールバック内で発生するため呼び出し元の try/catch では捕捉されず、未捕捉例外でプロセスがクラッシュしていた。同時にExceptionがINSERTの手前で飛ぶ為、クラッシュ時に監査ログの欠落も発生。</td>
+<td>プロセス再起動後に監査ログを書き込むAPIを7回連続でコールし、7回目のレスポンス直後にプロセスがクラッシュすることを確認。<br>確認方法：/api/health の uptime_sec が0に戻る、または docker compose logs app の [BOOT] 出力が1増える。<br>自動化：test/audit-log.test.mjs（bash test/run.sh で実行）</td>
+<td>test/measure-stability.mjsを実行<br>同時実行10×60件:<br>接続断 46件(76.7%)→0件(0%)<br>プロセス再起動 1回→0回<br>DB登録 19件→60件<br>監査ログ記録率 68.4%→100%<br>逐次20件:<br>接続断 13件(65%)→0件<br>再起動 1回→0回<br>記録率 85.7%→100%<br>7件連続:<br>監査ログ 6件→7件<br>再起動 1回→0回</td>
+</tr>
+<tr>
+<td>INQ-004</td>
+<td>(障害)不定期にエラー画面が出る</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>INQ-005</td>
+<td>(障害)承認ボタン押下時に「混み合っています」と出て失敗</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>INQ-006</td>
+<td>(問合)申請された金額が合っていない</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>INQ-007</td>
+<td>(障害)7月申請分が6月に集計</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>INQ-008</td>
+<td>(障害)一覧で状態の欄が空っぽの申請</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>INQ-009</td>
+<td>(問合)接待費申請の際に0円で登録</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>INQ-010</td>
+<td>(障害)別の人の申請に金額が入る</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>INQ-011</td>
+<td>(調査)DB容量の増加</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>INQ-012</td>
+<td>(要望)API動作支障</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>INQ-013</td>
+<td>(問合)定期券代の申請可否</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>INQ-014</td>
+<td>(要望)古い申請(year&gt;2022)のレシートを確認するとダウンする</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>INQ-015</td>
+<td>(要望)モバイル非対応</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>INQ-016</td>
+<td>(要望)改修規模概算</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>再現できなかった問い合わせ、原因を特定できなかった問い合わせも書いてください。
+<strong>「分からなかった」は、記録すべき事実です。</strong></p>
+<hr>
+<h2 id="2-判断した論点">2. 判断した論点</h2>
+<p>判断が必要だった論点ごとに記入してください。行は必要な数だけ増やしてください。</p>
+<h3 id="論点1">論点1</h3>
+<table>
+<thead>
+<tr>
+<th>項目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>論点</td>
+<td>ISSUES各項目の検証にあたりINQ-003のクラッシュ事象が検証を進める上でのボトルネックとなっている</td>
+</tr>
+<tr>
+<td>選択肢</td>
+<td>1.事象を引き起こしている当該コードに回避処理を追加して検証を続行する<br> 2.INQ-003の修正を優先的に行い、その後他の事象の検証を行う</td>
+</tr>
+<tr>
+<td>選んだ方針</td>
+<td>2.INQ-003の修正を優先的に行い、その後他の事象の検証を行う</td>
+</tr>
+<tr>
+<td>理由</td>
+<td>判断時点で原因の特定、再現、計測が全て行えている事象であり、今後の修正手順の参考とする為</td>
+</tr>
+<tr>
+<td>影響</td>
+<td>プロセス安定性向上による事象検証の円滑化<br>金額・既存データ・他部署の運用等の影響無し</td>
+</tr>
+<tr>
+<td>確認した相手</td>
+<td>未確認<br> 想定確認先:<br>情シス部<br>経理部<br>前任者<br>前任者については退職済み。確認不能</td>
+</tr>
+<tr>
+<td>前提</td>
+<td>1.INQ-003の修正が短期間で終わること<br>崩れた場合:長期化した場合、迅速な検証の為回避処理の追加に移行する可能性<br>2.修正が他の事象に影響しないこと<br>崩れた場合:残事象の検証の際に、隠れているか直っているかの判断が不可能になる</td>
+</tr>
+</tbody>
+</table>
+<h3 id="論点2">論点2</h3>
+<table>
+<thead>
+<tr>
+<th>項目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>論点</td>
+<td>INQ-003事象の修正にあたり取るべき方針</td>
+</tr>
+<tr>
+<td>選択肢</td>
+<td>1.try/catchによるエラーハンドリング<br>2.'v2:'分岐の削除<br>3.JSON.parse/stringifyを外す</td>
+</tr>
+<tr>
+<td>選んだ方針</td>
+<td>2.'v2:'分岐の削除</td>
+</tr>
+<tr>
+<td>理由</td>
+<td>1.DB内にv2付きのレコードが存在せず、監査基盤v2への移行実態が現状から確認できない為<br>2.方針1ではINQ-003事象と同時に発生している監査ログの欠落事象を解消できず、担当者が欠落を観測できなくなる為</td>
+</tr>
+<tr>
+<td>影響</td>
+<td>1.監査ログの欠落、並びにクラッシュ事象の解消　過去欠落分については解消不可<br>2.v2:の印が付かなくなる<br>金額・既存データ・他部署の運用等の影響無し</td>
+</tr>
+<tr>
+<td>確認した相手</td>
+<td>未確認<br> 想定確認先:<br>情シス部<br>経理部<br>前任者<br>前任者については退職済み。確認不能</td>
+</tr>
+<tr>
+<td>前提</td>
+<td>1.監査基盤v2の移行実態が存在しないこと<br>崩れた場合:連携先がv2の印を期待している場合動作に支障をきたす可能性 ただしv2付きのレコードは存在せず現状実害は無し<br>2.承認履歴はapprovalsに別途記録されていること<br>崩れた場合:approvalsに欠落が発生している場合承認の証跡を取る手段が無い</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="3-対応しなかったこと">3. 対応しなかったこと</h2>
+<p><strong>直さないと決めたことを、理由付きで書いてください。</strong>
+未対応の記録がない報告は、見落としと区別できません。</p>
+<table>
+<thead>
+<tr>
+<th>項目</th>
+<th>対応しなかった理由</th>
+<th>残るリスク</th>
+<th>誰に伝えたか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="4-確認が必要な事項宿題">4. 確認が必要な事項（宿題）</h2>
+<p>自分では決められなかった、確認先に投げるべき事項を書いてください。</p>
+<table>
+<thead>
+<tr>
+<th>確認事項</th>
+<th>確認先</th>
+<th>確認できないとどうなるか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="5-検証結果">5. 検証結果</h2>
+<p>改修前後の比較を、<strong>同じ測り方</strong>で並べてください。</p>
+<table>
+<thead>
+<tr>
+<th>項目</th>
+<th>測り方</th>
+<th>改修前</th>
+<th>改修後</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>壊していないことをどう担保したかも書いてください（テスト、手動確認、その範囲）。</p>
+<hr>
+<h2 id="6-次の担当者への引き継ぎ">6. 次の担当者への引き継ぎ</h2>
+<p>あなたが去ったあと、次の人が同じ苦労をしないために必要なことを書いてください。</p>
+<ul>
+<li>更新した資料:</li>
+<li>残っている問題:</li>
+<li>触ると危ない箇所とその理由:</li>
+</ul>
+
+            
+            
+        </body>
+        </html>
