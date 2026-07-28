@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>経費精算システム v1.4.2</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+    <h1>経費精算システム</h1>
+    <span class="version">v1.4.2</span>
+    <span class="user">
+        ログイン中：
+        <select id="currentUser"></select>
+    </span>
+</header>
+
+<nav>
+    <button class="tab active" data-tab="new">経費を申請する</button>
+    <button class="tab" data-tab="list">申請一覧</button>
+    <button class="tab" data-tab="approve">承認する</button>
+    <button class="tab" data-tab="summary">月次集計</button>
+</nav>
+
+<main>
+    <!-- ================= 申請フォーム ================= -->
+    <section id="tab-new" class="tab-panel active">
+        <h2>経費を申請する</h2>
+
+        <div class="row">
+            <label>カテゴリ</label>
+            <select id="category">
+                <option value="transport">交通費</option>
+                <option value="lodging">宿泊費</option>
+                <option value="entertainment">接待費</option>
+                <option value="goods">物品費</option>
+                <option value="other">その他</option>
+            </select>
+        </div>
+
+        <div class="row">
+            <label>件名</label>
+            <input type="text" id="title" placeholder="例）7/20 顧客訪問 交通費">
+        </div>
+
+        <div class="row" id="attendeeRow" style="display:none;">
+            <label>参加人数</label>
+            <input type="number" id="attendeeCount" value="2" min="1">
+        </div>
+
+        <div class="row" id="currencyRow" style="display:none;">
+            <label>通貨</label>
+            <select id="currency">
+                <option value="JPY">JPY（円）</option>
+                <option value="USD">USD（米ドル）</option>
+                <option value="EUR">EUR（ユーロ）</option>
+                <option value="KRW">KRW（ウォン）</option>
+            </select>
+        </div>
+
+        <div class="row">
+            <label>対象月</label>
+            <input type="text" id="targetMonth" placeholder="2026-07">
+        </div>
+
+        <h3>明細</h3>
+        <table id="itemTable">
+            <thead>
+            <tr><th>内容</th><th>単価</th><th>数量</th><th></th></tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td><input type="text" class="item-desc" placeholder="電車代（往復）"></td>
+                <td><input type="number" class="item-price" value="1200"></td>
+                <td><input type="number" class="item-qty" value="1"></td>
+                <td><button class="remove-item">削除</button></td>
+            </tr>
+            </tbody>
+        </table>
+        <button id="addItem">明細を追加</button>
+
+        <h3>レシート画像</h3>
+        <div class="row">
+            <input type="file" id="receiptFile" accept="image/*">
+            <span class="hint">※ 撮影した写真をそのまま添付してください（サーバ側で自動的に縮小されます）</span>
+        </div>
+
+        <div class="actions">
+            <button id="submitBtn" class="primary">申請する</button>
+        </div>
+
+        <pre id="result"></pre>
+    </section>
+
+    <!-- ================= 申請一覧 ================= -->
+    <section id="tab-list" class="tab-panel">
+        <h2>申請一覧</h2>
+        <div class="row">
+            <label>表示件数</label>
+            <select id="listLimit">
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+            <button id="reloadList">再読み込み</button>
+        </div>
+        <table id="reportTable">
+            <thead>
+            <tr>
+                <th>ID</th><th>件名</th><th>カテゴリ</th><th>状態</th>
+                <th>小計</th><th>税</th><th>合計</th><th>対象月</th><th>レシート</th>
+            </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </section>
+
+    <!-- ================= 承認 ================= -->
+    <section id="tab-approve" class="tab-panel">
+        <h2>承認する</h2>
+        <div class="row">
+            <label>申請ID</label>
+            <input type="number" id="approveReportId">
+        </div>
+        <div class="row">
+            <label>コメント</label>
+            <input type="text" id="approveComment">
+        </div>
+        <div class="actions">
+            <button id="approveBtn" class="primary">承認</button>
+            <button id="rejectBtn">却下</button>
+            <button id="withdrawBtn">取り下げ</button>
+        </div>
+        <pre id="approveResult"></pre>
+    </section>
+
+    <!-- ================= 月次集計 ================= -->
+    <section id="tab-summary" class="tab-panel">
+        <h2>月次集計</h2>
+        <div class="row">
+            <label>対象月</label>
+            <input type="text" id="summaryMonth" placeholder="2026-07">
+            <button id="summaryBtn">集計する</button>
+        </div>
+        <pre id="summaryResult"></pre>
+    </section>
+</main>
+
+<footer>
+    <small>お問い合わせ：情報システム部（内線 4132）／システムに関するご要望は年度末の予算調整後に検討します。</small>
+</footer>
+
+<script src="/app.js"></script>
+</body>
+</html>
