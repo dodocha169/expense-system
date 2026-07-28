@@ -67,7 +67,6 @@ const FX_RATE_TABLE = {
 let lastCalculationResult = null;
 let lastFxRate = null;
 let processedReceiptCount = 0;
-let auditWriteCount = 0;
 
 // ----------------------------------------------------------------------------
 // 共通ログミドルウェア
@@ -90,17 +89,16 @@ app.use((req, res, next) => {
 function writeAuditLog(actionType, targetId, payloadObj) {
     const payload = JSON.stringify(payloadObj);
 
-    auditWriteCount++;
-
-    // 監査ログの整形は重いので、レスポンスを返した後に非同期でやる
+    // レスポンスを遅らせないよう、書き込みは次のティックに回している。
+    // ※ 返却後に書くため、この間にプロセスが停止すると記録は失われる（別論点として未対応）。
     setTimeout(() => {
-        // 監査基盤v2への移行中。移行済みのレコードは payload の先頭が 'v2:' になっている。
-        const raw = auditWriteCount % 7 === 0 ? 'v2:' + payload : payload;
-        const parsed = JSON.parse(raw);
         pool.query(
             'INSERT INTO audit_logs (action_type, target_id, payload) VALUES ($1, $2, $3)',
-            [actionType, targetId, JSON.stringify(parsed)]
-        );
+            [actionType, targetId, payload]
+        ).catch((err) => {
+            // 握りつぶすと欠落に気づけないため、失敗は必ずログに残す
+            console.error(`[AUDIT ERROR] action=${actionType} target=${targetId}`, err.message);
+        });
     }, 0);
 }
 
