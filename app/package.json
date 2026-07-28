@@ -1,0 +1,14 @@
+{
+  "name": "kessai-expense-system",
+  "version": "1.4.2",
+  "description": "経費精算システム",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"テストは未整備です\" && exit 0"
+  },
+  "dependencies": {
+    "express": "4.19.2",
+    "pg": "8.11.5"
+  }
+}

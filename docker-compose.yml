@@ -1,0 +1,51 @@
+services:
+  app:
+    build: ./app
+    # 既存の legacy-system と同時に起動できるようポートをずらしている
+    ports:
+      - "3100:3000"
+    environment:
+      DB_HOST: db
+      DB_USER: expense_user
+      DB_PASSWORD: expense_password
+      DB_NAME: expense_db
+      PORT: 3000
+      NODE_ENV: production
+    depends_on:
+      # 起動直後にDBが未初期化でエラーになる事象があったため、
+      # 初期化完了を待つようにした（2022年6月）
+      db:
+        condition: service_healthy
+    # プロセスが落ちても自動で復帰するようにしている（2023年の障害対応で追加）
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  db:
+    image: postgres:15-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: expense_user
+      POSTGRES_PASSWORD: expense_password
+      POSTGRES_DB: expense_db
+      # デッドロックを調査しやすくするためログ出力を有効にしてある
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    command:
+      - "postgres"
+      - "-c"
+      - "log_lock_waits=on"
+      - "-c"
+      - "deadlock_timeout=1s"
+      - "-c"
+      - "log_min_messages=warning"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U expense_user -d expense_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql

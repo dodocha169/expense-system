@@ -1,0 +1,85 @@
+/* 経費精算システム スタイル（2019年構築時のまま） */
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: "Meiryo", "Hiragino Kaku Gothic ProN", sans-serif;
+    font-size: 13px;
+    color: #333;
+    background: #eef1f5;
+}
+
+header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: #2c5f8a;
+    color: #fff;
+}
+header h1 { font-size: 16px; margin: 0; }
+header .version { font-size: 11px; opacity: 0.8; }
+header .user { margin-left: auto; font-size: 12px; }
+header select { font-size: 12px; }
+
+nav {
+    display: flex;
+    background: #dde3ea;
+    border-bottom: 1px solid #b9c4d0;
+}
+nav .tab {
+    padding: 8px 16px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 13px;
+    border-right: 1px solid #b9c4d0;
+}
+nav .tab.active { background: #fff; font-weight: bold; }
+
+/* 社内の標準解像度（1280x1024）に合わせた固定幅レイアウト
+   ※ 幅を可変にすると表の桁がずれると経理部から指摘があったため固定にしている */
+main {
+    padding: 16px;
+    min-width: 1080px;
+}
+
+.tab-panel { display: none; background: #fff; padding: 16px; border: 1px solid #c8d0d8; }
+.tab-panel.active { display: block; }
+
+h2 { font-size: 15px; margin: 0 0 12px; border-left: 4px solid #2c5f8a; padding-left: 8px; }
+h3 { font-size: 13px; margin: 16px 0 6px; }
+
+.row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; white-space: nowrap; }
+.row label { width: 90px; text-align: right; color: #555; }
+.row input[type="text"], .row input[type="number"], .row select { padding: 4px 6px; border: 1px solid #aab; }
+.row input[type="text"] { width: 320px; }
+.hint { color: #888; font-size: 11px; }
+
+table { border-collapse: collapse; margin-bottom: 8px; }
+th, td { border: 1px solid #c8d0d8; padding: 4px 8px; text-align: left; }
+th { background: #f0f3f7; font-weight: normal; color: #555; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+td input { width: 100%; border: 1px solid #ccd; padding: 3px; }
+
+button { padding: 5px 12px; border: 1px solid #98a5b3; background: #f6f8fa; cursor: pointer; }
+button.primary { background: #2c5f8a; color: #fff; border-color: #24506f; }
+.actions { margin-top: 16px; display: flex; gap: 8px; }
+
+.badge { padding: 1px 6px; border: 1px solid #bbb; background: #f5f5f5; font-size: 11px; }
+.badge-submitted { background: #e5f0fb; border-color: #8ab4dd; }
+.badge-approved { background: #e6f5e6; border-color: #8dc98d; }
+.badge-rejected { background: #fbe9e9; border-color: #dd9a9a; }
+.badge-draft { background: #f2f2f2; }
+
+pre {
+    background: #f7f9fb;
+    border: 1px solid #d5dde5;
+    padding: 8px;
+    font-size: 11px;
+    max-height: 320px;
+    overflow: auto;
+    white-space: pre-wrap;
+}
+
+footer { padding: 12px 16px; color: #7a838d; }
