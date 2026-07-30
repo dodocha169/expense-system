@@ -1500,12 +1500,22 @@ app.get('/api/receipts/:id/thumb', async (req, res) => {
  *  DBに画像が無い場合はファイルサーバから読み出す。
  * ========================================================================= */
 app.get('/api/receipts/:id/raw', async (req, res) => {
+    // id の形式チェック。仕様8.1では形式不正は VALIDATION_ERROR / 400 とする。
+    // 上限は receipts.id が SERIAL（int4）であるため、その最大値まで許容する。
+    const receiptId = Number(req.params.id);
+    if (!Number.isInteger(receiptId) || receiptId <= 0 || receiptId > 2147483647) {
+        return res.status(400).json({
+            error: 'VALIDATION_ERROR',
+            message: 'レシートIDの形式が不正です'
+        });
+    }
+
     try {
-        // id には数値以外も渡ってくる。文字列連結のままだとDBエラーがこのハンドラの
-        // 外へ抜けて未処理のPromise拒否になり、プロセス全体が停止していた。
+        // 文字列連結のままだとDBエラーがこのハンドラの外へ抜けて
+        // 未処理のPromise拒否になり、プロセス全体が停止していた。
         const result = await pool.query(
             'SELECT filename, image_base64 FROM receipts WHERE id = $1',
-            [req.params.id]
+            [receiptId]
         );
 
         if (result.rows.length === 0) {

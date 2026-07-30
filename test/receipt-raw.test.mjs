@@ -93,6 +93,7 @@ before(async () => {
     observed.normal = await probe(normalId);
     observed.legacy = await probe(legacyId);
     observed.notNumeric = await probe('abc');
+    observed.outOfRange = await probe('99999999999');   // int4 の範囲外
     observed.missing = await probe(999999);
 
     psql(`DELETE FROM receipts WHERE id IN (${legacyId}, ${normalId});`);
@@ -123,7 +124,12 @@ test('旧レシート（画像がDBに無い）を開いてもプロセスは停
     assert.equal(observed.legacy.boots, 0, `再起動0回の想定。実際は ${observed.legacy.boots} 回`);
 });
 
-test('数値でないIDを渡してもプロセスは停止せず、エラー応答を返す', () => {
-    assert.equal(observed.notNumeric.status, 500, `500 の想定。実際は ${observed.notNumeric.status}`);
+test('数値でないIDは 400 を返し、プロセスは停止しない', () => {
+    assert.equal(observed.notNumeric.status, 400, `400 の想定。実際は ${observed.notNumeric.status}`);
     assert.equal(observed.notNumeric.boots, 0, `再起動0回の想定。実際は ${observed.notNumeric.boots} 回`);
+});
+
+test('int4 の範囲を超えるIDは 400 を返し、プロセスは停止しない', () => {
+    assert.equal(observed.outOfRange.status, 400, `400 の想定。実際は ${observed.outOfRange.status}`);
+    assert.equal(observed.outOfRange.boots, 0, `再起動0回の想定。実際は ${observed.outOfRange.boots} 回`);
 });
