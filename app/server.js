@@ -318,30 +318,50 @@ app.get('/api/reports', async (req, res) => {
         sql += ` ORDER BY id DESC LIMIT $${params.length}`;
 
         const reports = await pool.query(sql, params);
+        const reportIds = reports.rows.map((r) => r.id);
 
-        // 各申請の明細とレシートを取得する
+        // 以前は申請1件ごとに明細・レシート・承認履歴を個別に問い合わせていた
+        // （N+1）。まとめて取得してから申請ごとに振り分ける。
+        // レシートは image_base64 / thumb_base64 を取得しない。
+        // 一覧では添付の有無しか使わないのに、画像本体まで毎回読み込んでいた。
+        const [items, receipts, approvals] = reportIds.length === 0
+            ? [{ rows: [] }, { rows: [] }, { rows: [] }]
+            : await Promise.all([
+                pool.query(
+                    'SELECT * FROM expense_items WHERE report_id = ANY($1) ORDER BY report_id ASC, id ASC',
+                    [reportIds]
+                ),
+                pool.query(
+                    `SELECT id, report_id, filename, mime_type, exif_json, byte_size, created_at
+                     FROM receipts WHERE report_id = ANY($1) ORDER BY report_id ASC, id ASC`,
+                    [reportIds]
+                ),
+                pool.query(
+                    'SELECT * FROM approvals WHERE report_id = ANY($1) ORDER BY report_id ASC, step ASC',
+                    [reportIds]
+                )
+            ]);
+
+        /** report_id をキーに行をまとめる */
+        const groupBy = (rows) => {
+            const map = new Map();
+            for (const row of rows) {
+                if (!map.has(row.report_id)) map.set(row.report_id, []);
+                map.get(row.report_id).push(row);
+            }
+            return map;
+        };
+        const itemsBy = groupBy(items.rows);
+        const receiptsBy = groupBy(receipts.rows);
+        const approvalsBy = groupBy(approvals.rows);
+
         const rows = [];
         for (const r of reports.rows) {
             const report = Util.deepCopy(r);
-
-            const items = await pool.query(
-                'SELECT * FROM expense_items WHERE report_id = $1 ORDER BY id ASC',
-                [report.id]
-            );
-            const receipts = await pool.query(
-                'SELECT * FROM receipts WHERE report_id = $1 ORDER BY id ASC',
-                [report.id]
-            );
-            const approvals = await pool.query(
-                'SELECT * FROM approvals WHERE report_id = $1 ORDER BY step ASC',
-                [report.id]
-            );
-
-            report.items = items.rows;
-            report.receipts = receipts.rows;
-            report.approvals = approvals.rows;
-            report.hasReceipt = receipts.rows.length > 0;
-
+            report.items = itemsBy.get(report.id) || [];
+            report.receipts = receiptsBy.get(report.id) || [];
+            report.approvals = approvalsBy.get(report.id) || [];
+            report.hasReceipt = report.receipts.length > 0;
             rows.push(report);
         }
 
@@ -1825,31 +1845,39 @@ app.get('/api/summary/:userId/:month', async (req, res) => {
             [userId, month]
         );
 
+        const reportIds = reports.rows.map((r) => r.id);
+
+        // 以前は申請1件ごとに明細とレシートを個別に問い合わせ（N+1）、さらに
+        // レシート画像を全件アプリ側へ転送して復号し、parseExifSync まで
+        // 実行していた（結果は破棄されるため計算する意味がなかった）。
+        // 件数とバイト数はDB側で集計する。
+        //   バイト数は従来と同じ値になるようにしている:
+        //   data URI のカンマ以降を base64 として復号した長さの合計
+        const [itemCounts, receiptStats] = reportIds.length === 0
+            ? [{ rows: [] }, { rows: [] }]
+            : await Promise.all([
+                pool.query(
+                    'SELECT report_id, COUNT(*) AS cnt FROM expense_items WHERE report_id = ANY($1) GROUP BY report_id',
+                    [reportIds]
+                ),
+                pool.query(
+                    `SELECT report_id,
+                            COUNT(*) AS cnt,
+                            COALESCE(SUM(octet_length(decode(split_part(image_base64, ',', 2), 'base64'))), 0) AS bytes
+                     FROM receipts WHERE report_id = ANY($1) GROUP BY report_id`,
+                    [reportIds]
+                )
+            ]);
+
+        const itemCountBy = new Map(itemCounts.rows.map((r) => [r.report_id, Number(r.cnt)]));
+        const receiptCountBy = new Map(receiptStats.rows.map((r) => [r.report_id, Number(r.cnt)]));
+
         const byCategory = {};
         let grandTotal = 0;
-        let receiptBytes = 0;
+        let receiptBytes = receiptStats.rows.reduce((sum, r) => sum + Number(r.bytes), 0);
         const detail = [];
 
         for (const report of reports.rows) {
-            const items = await pool.query(
-                'SELECT * FROM expense_items WHERE report_id = $1',
-                [report.id]
-            );
-            const receipts = await pool.query(
-                'SELECT * FROM receipts WHERE report_id = $1',
-                [report.id]
-            );
-
-            // レシートの実サイズを集計する（添付漏れ・巨大ファイルの検出用）
-            for (const receipt of receipts.rows) {
-                if (receipt.image_base64) {
-                    const decoded = Buffer.from(receipt.image_base64.split(',')[1] || '', 'base64');
-                    receiptBytes += decoded.length;
-                    // 破損チェックも兼ねてチェックサムを再計算する
-                    parseExifSync(decoded);
-                }
-            }
-
             const cat = report.category || 'unknown';
             if (!byCategory[cat]) {
                 byCategory[cat] = { count: 0, total: 0 };
@@ -1864,8 +1892,8 @@ app.get('/api/summary/:userId/:month', async (req, res) => {
                 category: report.category,
                 status: report.status,
                 total: Util.toNumber(report.total_amount),
-                itemCount: items.rows.length,
-                receiptCount: receipts.rows.length
+                itemCount: itemCountBy.get(report.id) || 0,
+                receiptCount: receiptCountBy.get(report.id) || 0
             });
         }
 
@@ -1891,18 +1919,28 @@ app.get('/api/summary/:userId/:month', async (req, res) => {
 app.get('/api/export/:month', async (req, res) => {
     try {
         const month = req.params.month;
+        // 以前は申請1件ごとに社員名を問い合わせていた（N+1）。JOINで1回にする。
+        // 出力に使う列だけを選ぶ（note などの不要なTEXT列を読まない）。
+        // ※ 3列目の見出しは title だが、実際に出力しているのは社員名である。
+        //   給与システムへの連携ファイルなので、この対応では内容を変えない。
+        //   見出しと内容の不一致は別論点として残す。
         const reports = await pool.query(
-            'SELECT * FROM expense_reports WHERE target_month = $1 ORDER BY id ASC',
+            `SELECT r.id, r.user_id, r.category, r.status,
+                    r.subtotal_amount, r.tax_amount, r.total_amount,
+                    COALESCE(u.name, '') AS user_name
+             FROM expense_reports r
+             LEFT JOIN users u ON u.id = r.user_id
+             WHERE r.target_month = $1
+             ORDER BY r.id ASC`,
             [month]
         );
 
         let csv = 'report_id,user_id,title,category,status,subtotal,tax,total\n';
         for (const r of reports.rows) {
-            const user = await pool.query('SELECT name FROM users WHERE id = $1', [r.user_id]);
             csv += [
                 r.id,
                 r.user_id,
-                (user.rows[0] ? user.rows[0].name : ''),
+                r.user_name,
                 r.category,
                 r.status,
                 r.subtotal_amount,
