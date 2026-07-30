@@ -1500,25 +1500,49 @@ app.get('/api/receipts/:id/thumb', async (req, res) => {
  *  DBに画像が無い場合はファイルサーバから読み出す。
  * ========================================================================= */
 app.get('/api/receipts/:id/raw', async (req, res) => {
-    const result = await pool.query(
-        `SELECT filename, image_base64 FROM receipts WHERE id = ${req.params.id}`
-    );
+    try {
+        // id には数値以外も渡ってくる。文字列連結のままだとDBエラーがこのハンドラの
+        // 外へ抜けて未処理のPromise拒否になり、プロセス全体が停止していた。
+        const result = await pool.query(
+            'SELECT filename, image_base64 FROM receipts WHERE id = $1',
+            [req.params.id]
+        );
 
-    if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'レシートが見つかりません' });
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'レシートが見つかりません' });
+        }
+
+        const row = result.rows[0];
+
+        if (row.image_base64) {
+            return res.json({ data: { image: row.image_base64 } });
+        }
+
+        // 旧システム（2022-03より前）のレシートはファイルサーバから配信する。
+        // ファイルが無いときの 'error' を拾わないとプロセス全体が停止するため、
+        // pipe する前に必ずハンドラを付ける。
+        const legacyPath = path.join(LEGACY_RECEIPT_DIR, row.filename);
+        const stream = fs.createReadStream(legacyPath);
+
+        stream.on('error', (streamErr) => {
+            console.error(
+                `[RECEIPT RAW ERROR] reqId=${req.reqId} path=${legacyPath}`,
+                streamErr.message
+            );
+            // レコードは存在するが原本が読めない状態。仕様8.1の「サーバ側の異常」に当たる
+            if (!res.headersSent) {
+                res.status(500).json({ error: 'レシート画像の原本を読み取れませんでした' });
+            } else {
+                res.destroy();
+            }
+        });
+
+        res.setHeader('Content-Type', 'image/jpeg');
+        stream.pipe(res);
+    } catch (err) {
+        console.error(`[RECEIPT RAW ERROR] reqId=${req.reqId}`, err.message);
+        res.status(500).json({ error: 'レシートの取得に失敗しました' });
     }
-
-    const row = result.rows[0];
-
-    if (row.image_base64) {
-        return res.json({ data: { image: row.image_base64 } });
-    }
-
-    // 旧システムのレシートはファイルサーバから配信する
-    const legacyPath = path.join(LEGACY_RECEIPT_DIR, row.filename);
-    const stream = fs.createReadStream(legacyPath);
-    res.setHeader('Content-Type', 'image/jpeg');
-    stream.pipe(res);
 });
 
 /* ############################################################################
