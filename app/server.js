@@ -121,10 +121,13 @@ const Util = {
     // 深いコピー
     deepCopy: (obj) => JSON.parse(JSON.stringify(obj)),
 
-    // 検索条件を組み立てる
-    buildCondition: (field, value) => {
+    // 検索条件を組み立てる。
+    // 値はSQLに埋め込まず params に積み、プレースホルダ番号だけを返す。
+    // field は呼び出し側が指定するカラム名のみで、利用者入力は入らない。
+    buildCondition: (field, value, params) => {
         if (!value) return '';
-        return `${field} = '${value}'`;
+        params.push(value);
+        return `${field} = $${params.length}`;
     }
 };
 
@@ -272,13 +275,14 @@ app.get('/api/health', (req, res) => {
  * ========================================================================= */
 app.get('/api/users', async (req, res) => {
     try {
+        const params = [];
         let sql = 'SELECT id, name, email, role, department FROM users WHERE is_deleted = false';
-        const cond = Util.buildCondition('department', req.query.department);
+        const cond = Util.buildCondition('department', req.query.department, params);
         if (cond) {
             sql += ' AND ' + cond;
         }
         sql += ' ORDER BY id ASC';
-        const result = await pool.query(sql);
+        const result = await pool.query(sql, params);
         res.json({ data: result.rows });
     } catch (err) {
         res.status(500).json({ error: 'ユーザー取得に失敗しました' });
@@ -294,22 +298,26 @@ app.get('/api/users', async (req, res) => {
 app.get('/api/reports', async (req, res) => {
     try {
         const limit = req.query.limit || 20;
-        const userId = req.query.userId;
 
+        const params = [];
         let sql = 'SELECT * FROM expense_reports';
         const conditions = [];
-        if (userId) {
-            conditions.push(Util.buildCondition('user_id', userId));
+        const userCond = Util.buildCondition('user_id', req.query.userId, params);
+        if (userCond) {
+            conditions.push(userCond);
         }
-        if (req.query.status) {
-            conditions.push(Util.buildCondition('status', req.query.status));
+        const statusCond = Util.buildCondition('status', req.query.status, params);
+        if (statusCond) {
+            conditions.push(statusCond);
         }
         if (conditions.length > 0) {
             sql += ' WHERE ' + conditions.join(' AND ');
         }
-        sql += ` ORDER BY id DESC LIMIT ${limit}`;
+        // LIMIT はクォートされていなかったため、任意のSQL式を差し込める状態だった
+        params.push(limit);
+        sql += ` ORDER BY id DESC LIMIT $${params.length}`;
 
-        const reports = await pool.query(sql);
+        const reports = await pool.query(sql, params);
 
         // 各申請の明細とレシートを取得する
         const rows = [];
@@ -317,13 +325,16 @@ app.get('/api/reports', async (req, res) => {
             const report = Util.deepCopy(r);
 
             const items = await pool.query(
-                `SELECT * FROM expense_items WHERE report_id = ${report.id} ORDER BY id ASC`
+                'SELECT * FROM expense_items WHERE report_id = $1 ORDER BY id ASC',
+                [report.id]
             );
             const receipts = await pool.query(
-                `SELECT * FROM receipts WHERE report_id = ${report.id} ORDER BY id ASC`
+                'SELECT * FROM receipts WHERE report_id = $1 ORDER BY id ASC',
+                [report.id]
             );
             const approvals = await pool.query(
-                `SELECT * FROM approvals WHERE report_id = ${report.id} ORDER BY step ASC`
+                'SELECT * FROM approvals WHERE report_id = $1 ORDER BY step ASC',
+                [report.id]
             );
 
             report.items = items.rows;
@@ -346,12 +357,12 @@ app.get('/api/reports', async (req, res) => {
 app.get('/api/reports/:id', async (req, res) => {
     try {
         const id = req.params.id;
-        const report = await pool.query(`SELECT * FROM expense_reports WHERE id = ${id}`);
+        const report = await pool.query('SELECT * FROM expense_reports WHERE id = $1', [id]);
         if (report.rows.length === 0) {
             return res.status(404).json({ error: '申請が見つかりません' });
         }
-        const items = await pool.query(`SELECT * FROM expense_items WHERE report_id = ${id}`);
-        const receipts = await pool.query(`SELECT * FROM receipts WHERE report_id = ${id}`);
+        const items = await pool.query('SELECT * FROM expense_items WHERE report_id = $1', [id]);
+        const receipts = await pool.query('SELECT * FROM receipts WHERE report_id = $1', [id]);
         const data = Util.deepCopy(report.rows[0]);
         data.items = items.rows;
         data.receipts = receipts.rows;
@@ -367,7 +378,8 @@ app.get('/api/reports/:id', async (req, res) => {
 app.get('/api/budgets/:userId', async (req, res) => {
     try {
         const result = await pool.query(
-            `SELECT * FROM monthly_budgets WHERE user_id = ${req.params.userId} ORDER BY target_month ASC`
+            'SELECT * FROM monthly_budgets WHERE user_id = $1 ORDER BY target_month ASC',
+            [req.params.userId]
         );
         res.json({ data: result.rows });
     } catch (err) {
@@ -464,7 +476,8 @@ app.post('/api/reports/transport', async (req, res) => {
 
         // ---- 月次予算枠のチェック ----
         const budget = await pool.query(
-            `SELECT * FROM monthly_budgets WHERE user_id = ${body.userId} AND target_month = '${targetMonth}'`
+            'SELECT * FROM monthly_budgets WHERE user_id = $1 AND target_month = $2',
+            [body.userId, targetMonth]
         );
         if (budget.rows.length > 0) {
             const used = Util.toNumber(budget.rows[0].used_amount);
@@ -604,7 +617,8 @@ app.post('/api/reports/lodging', async (req, res) => {
 
         // ---- 月次予算枠のチェック ----
         const budget = await pool.query(
-            `SELECT * FROM monthly_budgets WHERE user_id = ${body.userId} AND target_month = '${targetMonth}'`
+            'SELECT * FROM monthly_budgets WHERE user_id = $1 AND target_month = $2',
+            [body.userId, targetMonth]
         );
         if (budget.rows.length > 0) {
             const used = Util.toNumber(budget.rows[0].used_amount);
@@ -757,7 +771,8 @@ app.post('/api/reports/entertainment', async (req, res) => {
 
         // ---- 月次予算枠のチェック ----
         const budget = await pool.query(
-            `SELECT * FROM monthly_budgets WHERE user_id = ${body.userId} AND target_month = '${targetMonth}'`
+            'SELECT * FROM monthly_budgets WHERE user_id = $1 AND target_month = $2',
+            [body.userId, targetMonth]
         );
         if (budget.rows.length > 0) {
             const used = Util.toNumber(budget.rows[0].used_amount);
@@ -891,7 +906,8 @@ app.post('/api/reports/goods', async (req, res) => {
 
         // ---- 月次予算枠のチェック ----
         const budget = await pool.query(
-            `SELECT * FROM monthly_budgets WHERE user_id = ${body.userId} AND target_month = '${targetMonth}'`
+            'SELECT * FROM monthly_budgets WHERE user_id = $1 AND target_month = $2',
+            [body.userId, targetMonth]
         );
         if (budget.rows.length > 0) {
             const used = Util.toNumber(budget.rows[0].used_amount);
@@ -1134,7 +1150,8 @@ app.post('/api/reports/commuter', async (req, res) => {
         // 同じ月に定期券費が既に申請されている場合は受け付けない
         const duplicated = await pool.query(
             `SELECT id FROM expense_reports
-             WHERE user_id = ${body.userId} AND category = 'commuter' AND target_month = '${targetMonth}'`
+             WHERE user_id = $1 AND category = 'commuter' AND target_month = $2`,
+            [body.userId, targetMonth]
         );
         if (duplicated.rows.length > 0) {
             return res.status(400).json({
@@ -1482,7 +1499,10 @@ app.post('/api/receipts/upload', async (req, res) => {
  * ========================================================================= */
 app.get('/api/receipts/:id/thumb', async (req, res) => {
     try {
-        const result = await pool.query(`SELECT thumb_base64 FROM receipts WHERE id = ${req.params.id}`);
+        const result = await pool.query(
+            'SELECT thumb_base64 FROM receipts WHERE id = $1',
+            [req.params.id]
+        );
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'レシートが見つかりません' });
         }
@@ -1760,7 +1780,7 @@ app.post('/api/reports/:id/reject', async (req, res) => {
     }
 
     try {
-        const reportRes = await pool.query(`SELECT * FROM expense_reports WHERE id = ${reportId}`);
+        const reportRes = await pool.query('SELECT * FROM expense_reports WHERE id = $1', [reportId]);
         if (reportRes.rows.length === 0) {
             return res.status(404).json({ error: '申請が見つかりません' });
         }
@@ -1801,7 +1821,8 @@ app.get('/api/summary/:userId/:month', async (req, res) => {
         const { userId, month } = req.params;
 
         const reports = await pool.query(
-            `SELECT * FROM expense_reports WHERE user_id = ${userId} AND target_month = '${month}' ORDER BY id ASC`
+            'SELECT * FROM expense_reports WHERE user_id = $1 AND target_month = $2 ORDER BY id ASC',
+            [userId, month]
         );
 
         const byCategory = {};
@@ -1811,10 +1832,12 @@ app.get('/api/summary/:userId/:month', async (req, res) => {
 
         for (const report of reports.rows) {
             const items = await pool.query(
-                `SELECT * FROM expense_items WHERE report_id = ${report.id}`
+                'SELECT * FROM expense_items WHERE report_id = $1',
+                [report.id]
             );
             const receipts = await pool.query(
-                `SELECT * FROM receipts WHERE report_id = ${report.id}`
+                'SELECT * FROM receipts WHERE report_id = $1',
+                [report.id]
             );
 
             // レシートの実サイズを集計する（添付漏れ・巨大ファイルの検出用）
@@ -1869,12 +1892,13 @@ app.get('/api/export/:month', async (req, res) => {
     try {
         const month = req.params.month;
         const reports = await pool.query(
-            `SELECT * FROM expense_reports WHERE target_month = '${month}' ORDER BY id ASC`
+            'SELECT * FROM expense_reports WHERE target_month = $1 ORDER BY id ASC',
+            [month]
         );
 
         let csv = 'report_id,user_id,title,category,status,subtotal,tax,total\n';
         for (const r of reports.rows) {
-            const user = await pool.query(`SELECT name FROM users WHERE id = ${r.user_id}`);
+            const user = await pool.query('SELECT name FROM users WHERE id = $1', [r.user_id]);
             csv += [
                 r.id,
                 r.user_id,
