@@ -14,7 +14,7 @@
 |---|---|---|---|---|
 | INQ-001 | (障害)月末に画面が遅い | | | 改修前 P95 = ○秒 |
 | INQ-002| (障害)レシート写真を添付して申請すると固まる |  |  |  |
-| INQ-003| (障害)複数回数操作時にシステムが落ちる | app/server.jsのwriteAuditLog()内で監査ログの書き込みを行う際、7回に1回'v2:' + payloadをJSON.parsしており、SyntaxErrorを出力していた。setTimeoutのコールバック内で発生するため呼び出し元の try/catch では捕捉されず、未捕捉例外でプロセスがクラッシュしていた。同時にExceptionがINSERTの手前で飛ぶ為、クラッシュ時に監査ログの欠落も発生。 | プロセス再起動後に監査ログを書き込むAPIを7回連続でコールし、7回目のレスポンス直後にプロセスがクラッシュすることを確認。<br>確認方法：/api/health の uptime_sec が0に戻る、または docker compose logs app の [BOOT] 出力が1増える。<br>自動化：test/audit-log.test.mjs（bash test/run.sh で実行） |  test/measure-stability.mjsを実行<br>同時実行10×60件:<br>接続断 46件(76.7%)→0件(0%)<br>プロセス再起動 1回→0回<br>DB登録 19件→60件<br>監査ログ記録率 68.4%→100%<br>逐次20件:<br>接続断 13件(65%)→0件<br>再起動 1回→0回<br>記録率 85.7%→100%<br>7件連続:<br>監査ログ 6件→7件<br>再起動 1回→0回 |
+| INQ-003| (障害)複数回数操作時にシステムが落ちる | app/server.jsのwriteAuditLog()内で監査ログの書き込みを行う際、7回に1回'v2:' + payloadをJSON.parsしており、SyntaxErrorを出力していた。setTimeoutのコールバック内で発生するため呼び出し元の try/catch では捕捉されず、未捕捉例外でプロセスがクラッシュしていた。同時にExceptionがINSERTの手前で飛ぶ為、クラッシュ時に監査ログの欠落も発生。 | プロセス再起動後に監査ログを書き込むAPIを7回連続でコールし、7回目のレスポンス直後にプロセスがクラッシュすることを確認。<br>確認方法:/api/health の uptime_sec が0に戻る、または docker compose logs app の [BOOT] 出力が1増える。<br>自動化:test/audit-log.test.mjs(bash test/run.sh で実行) |  test/measure-stability.mjsを実行<br>同時実行10×60件:<br>接続断 46件(76.7%)→0件(0%)<br>プロセス再起動 1回→0回<br>DB登録 19件→60件<br>監査ログ記録率 68.4%→100%<br>逐次20件:<br>接続断 13件(65%)→0件<br>再起動 1回→0回<br>記録率 85.7%→100%<br>7件連続:<br>監査ログ 6件→7件<br>再起動 1回→0回 |
 | INQ-004| (障害)不定期にエラー画面が出る |  |  |  |
 | INQ-005| (障害)承認ボタン押下時に「混み合っています」と出て失敗 |  |  |  |
 | INQ-006| (問合)申請された金額が合っていない |  |  |  |
@@ -25,7 +25,7 @@
 | INQ-011| (調査)DB容量の増加 |  |  |  |
 | INQ-012| (要望)API動作支障 |  |  |  |
 | INQ-013| (問合)定期券代の申請可否 |  |  |  |
-| INQ-014| (要望)古い申請(year>2022)のレシートを確認するとダウンする |  |  |  |
+| INQ-014| (要望)古い申請(year<2022)のレシートを確認するとダウンする | app/server.js の GET /api/receipts/:id/raw だけ try/catch が無く、2経路でプロセスが停止していた。<br>1.2022-03より前のレシートは image_base64 が NULL のためファイルサーバへフォールバックするが、fs.createReadStream の 'error' が未ハンドルで ENOENT のまま throw er; // Unhandled 'error' event となる。<br>2.id を文字列連結していたため数値以外を渡すとDBエラーがハンドラ外へ抜け、未処理のPromise拒否になる(column "abc" does not exist)。<br>いずれも restart: always で自動復帰するため「しばらくすると直る」ように見えていた。 | image_base64 が NULL のレシートを1件用意し、GET /api/receipts/{id}/raw を呼ぶ。<br>数値でないIDの場合は GET /api/receipts/abc/raw。<br>確認方法:docker compose logs app の [BOOT] が1増える、直後の別リクエストが到達不可になる。<br>自動化:test/receipt-raw.test.mjs(bash test/run.sh)<br>計測;test/measure-inq014.mjs | test/measure-inq014.mjs を実行<br>旧レシート:接続断・再起動1回 → HTTP 500・再起動0回<br>数値でないID:接続断・再起動1回 → HTTP 400・再起動0回<br>直後の別リクエスト:到達不可 → HTTP 200<br>通常レシート:HTTP 200・再起動0回(改修前後で不変)<br>存在しないID:HTTP 404(改修前後で不変) |
 | INQ-015| (要望)モバイル非対応 |  |  |  |
 | INQ-016| (要望)改修規模概算 |  |  |  |
 
@@ -75,7 +75,7 @@
 
 ---
 
-## 4. 確認が必要な事項（宿題）
+## 4. 確認が必要な事項(宿題)
 
 自分では決められなかった、確認先に投げるべき事項を書いてください。
 
@@ -93,7 +93,7 @@
 |---|---|---|---|
 |  |  |  |  |
 
-壊していないことをどう担保したかも書いてください（テスト、手動確認、その範囲）。
+壊していないことをどう担保したかも書いてください(テスト、手動確認、その範囲)。
 
 ---
 

@@ -175,7 +175,7 @@
 <td>INQ-003</td>
 <td>(障害)複数回数操作時にシステムが落ちる</td>
 <td>app/server.jsのwriteAuditLog()内で監査ログの書き込みを行う際、7回に1回'v2:' + payloadをJSON.parsしており、SyntaxErrorを出力していた。setTimeoutのコールバック内で発生するため呼び出し元の try/catch では捕捉されず、未捕捉例外でプロセスがクラッシュしていた。同時にExceptionがINSERTの手前で飛ぶ為、クラッシュ時に監査ログの欠落も発生。</td>
-<td>プロセス再起動後に監査ログを書き込むAPIを7回連続でコールし、7回目のレスポンス直後にプロセスがクラッシュすることを確認。<br>確認方法：/api/health の uptime_sec が0に戻る、または docker compose logs app の [BOOT] 出力が1増える。<br>自動化：test/audit-log.test.mjs（bash test/run.sh で実行）</td>
+<td>プロセス再起動後に監査ログを書き込むAPIを7回連続でコールし、7回目のレスポンス直後にプロセスがクラッシュすることを確認。<br>確認方法:/api/health の uptime_sec が0に戻る、または docker compose logs app の [BOOT] 出力が1増える。<br>自動化:test/audit-log.test.mjs(bash test/run.sh で実行)</td>
 <td>test/measure-stability.mjsを実行<br>同時実行10×60件:<br>接続断 46件(76.7%)→0件(0%)<br>プロセス再起動 1回→0回<br>DB登録 19件→60件<br>監査ログ記録率 68.4%→100%<br>逐次20件:<br>接続断 13件(65%)→0件<br>再起動 1回→0回<br>記録率 85.7%→100%<br>7件連続:<br>監査ログ 6件→7件<br>再起動 1回→0回</td>
 </tr>
 <tr>
@@ -250,10 +250,10 @@
 </tr>
 <tr>
 <td>INQ-014</td>
-<td>(要望)古い申請(year&gt;2022)のレシートを確認するとダウンする</td>
-<td></td>
-<td></td>
-<td></td>
+<td>(要望)古い申請(year&lt;2022)のレシートを確認するとダウンする</td>
+<td>app/server.js の GET /api/receipts/:id/raw だけ try/catch が無く、2経路でプロセスが停止していた。<br>1.2022-03より前のレシートは image_base64 が NULL のためファイルサーバへフォールバックするが、fs.createReadStream の 'error' が未ハンドルで ENOENT のまま throw er; // Unhandled 'error' event となる。<br><a href="http://2.id">2.id</a> を文字列連結していたため数値以外を渡すとDBエラーがハンドラ外へ抜け、未処理のPromise拒否になる(column &quot;abc&quot; does not exist)。<br>いずれも restart: always で自動復帰するため「しばらくすると直る」ように見えていた。</td>
+<td>image_base64 が NULL のレシートを1件用意し、GET /api/receipts/{id}/raw を呼ぶ。<br>数値でないIDの場合は GET /api/receipts/abc/raw。<br>確認方法:docker compose logs app の [BOOT] が1増える、直後の別リクエストが到達不可になる。<br>自動化:test/receipt-raw.test.mjs(bash test/run.sh)<br>計測;test/measure-inq014.mjs</td>
+<td>test/measure-inq014.mjs を実行<br>旧レシート:接続断・再起動1回 → HTTP 500・再起動0回<br>数値でないID:接続断・再起動1回 → HTTP 400・再起動0回<br>直後の別リクエスト:到達不可 → HTTP 200<br>通常レシート:HTTP 200・再起動0回(改修前後で不変)<br>存在しないID:HTTP 404(改修前後で不変)</td>
 </tr>
 <tr>
 <td>INQ-015</td>
@@ -377,7 +377,7 @@
 </tbody>
 </table>
 <hr>
-<h2 id="4-確認が必要な事項宿題">4. 確認が必要な事項（宿題）</h2>
+<h2 id="4-確認が必要な事項宿題">4. 確認が必要な事項(宿題)</h2>
 <p>自分では決められなかった、確認先に投げるべき事項を書いてください。</p>
 <table>
 <thead>
@@ -416,7 +416,7 @@
 </tr>
 </tbody>
 </table>
-<p>壊していないことをどう担保したかも書いてください（テスト、手動確認、その範囲）。</p>
+<p>壊していないことをどう担保したかも書いてください(テスト、手動確認、その範囲)。</p>
 <hr>
 <h2 id="6-次の担当者への引き継ぎ">6. 次の担当者への引き継ぎ</h2>
 <p>あなたが去ったあと、次の人が同じ苦労をしないために必要なことを書いてください。</p>
