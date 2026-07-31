@@ -21,6 +21,8 @@ const USER_ID = 1;
 const MONTH = '2026-07';
 const REPORTS = 20;
 const KB = 800;                       // レシート1枚あたりの base64 長（約800KB）
+/** 試行回数。P95を出すため既定を60回にしている（3回では95パーセンタイルに意味がない） */
+const RUNS = Number(process.argv[2] || 60);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const compose = (...a) =>
@@ -72,18 +74,30 @@ function setupFixture() {
     psql('ANALYZE receipts; ANALYZE expense_items; ANALYZE expense_reports;');
 }
 
-async function timed(url, runs = 3) {
+/** 仕様書9章の目標値: 一覧・詳細は1秒以内 */
+const TARGET_MS = 1000;
+
+async function timed(url, runs) {
     const ts = [];
+    let bytes = 0;
     for (let i = 0; i < runs; i++) {
         const t = Date.now();
         try {
             const res = await fetch(`${BASE}${url}`, { signal: AbortSignal.timeout(300000) });
-            await res.text();
+            bytes = (await res.text()).length;
         } catch { return null; }
         ts.push(Date.now() - t);
     }
     ts.sort((a, b) => a - b);
-    return ts[Math.floor(ts.length / 2)];
+    const at = (p) => ts[Math.min(ts.length - 1, Math.floor(ts.length * p))];
+    return {
+        n: ts.length,
+        p50: at(0.5),
+        p95: at(0.95),
+        max: ts[ts.length - 1],
+        within: ts.filter((v) => v <= TARGET_MS).length,
+        bytes
+    };
 }
 
 /** 1リクエストで発行されるSQL文の数を数える */
@@ -103,27 +117,25 @@ function queryCountOf(label) {
 
     const targets = [
         ['GET /api/reports?limit=20', '/api/reports?limit=20'],
-        ['GET /api/reports?limit=50', '/api/reports?limit=50'],
         ['GET /api/reports?limit=100', '/api/reports?limit=100'],
         [`GET /api/summary/${USER_ID}/${MONTH}`, `/api/summary/${USER_ID}/${MONTH}`],
         [`GET /api/export/${MONTH}`, `/api/export/${MONTH}`]
     ];
 
-    console.log('--- 応答時間（各3回の中央値）---');
+    console.log(`--- 応答時間（各 ${RUNS} 回。目標値は仕様9章の ${TARGET_MS}ms 以内）---`);
+    console.log('  対象                              P50      P95      最大   1秒以内   応答サイズ');
+    console.log('  ' + '-'.repeat(78));
     for (const [label, url] of targets) {
-        const ms = await timed(url);
-        console.log(`  ${label.padEnd(32)} ${ms === null ? '失敗' : ms + 'ms'}`);
+        const s = await timed(url, RUNS);
+        if (s === null) { console.log(`  ${label.padEnd(32)} 失敗`); continue; }
+        const rate = `${s.within}/${s.n}`;
+        const judge = s.within === s.n ? '達成' : (s.p95 <= TARGET_MS ? 'P95達成' : '未達');
+        console.log(
+            `  ${label.padEnd(32)} ${String(s.p50 + 'ms').padStart(7)}  ${String(s.p95 + 'ms').padStart(7)}  ` +
+            `${String(s.max + 'ms').padStart(7)}  ${rate.padStart(7)}  ${(s.bytes / 1024).toFixed(1).padStart(9)} KB  ${judge}`
+        );
     }
 
-    console.log('\n--- 応答サイズ ---');
-    for (const [label, url] of targets) {
-        try {
-            const res = await fetch(`${BASE}${url}`, { signal: AbortSignal.timeout(300000) });
-            const text = await res.text();
-            console.log(`  ${label.padEnd(32)} ${(text.length / 1024).toFixed(1)} KB`);
-        } catch { console.log(`  ${label.padEnd(32)} 失敗`); }
-    }
-
-    console.log('\n検体は残してあります（改修後に同じ条件で再計測するため）。');
+    console.log('\n検体は残してあります（別の状態で同じ条件で再計測するため）。');
     console.log(`削除する場合: DELETE FROM expense_reports WHERE title LIKE '${TAG}%';`);
 })();
