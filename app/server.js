@@ -1868,10 +1868,25 @@ app.get('/api/summary/:userId/:month', async (req, res) => {
                     [reportIds]
                 ),
                 pool.query(
-                    `SELECT report_id,
-                            COUNT(*) AS cnt,
-                            COALESCE(SUM(octet_length(decode(split_part(image_base64, ',', 2), 'base64'))), 0) AS bytes
-                     FROM receipts WHERE report_id = ANY($1) GROUP BY report_id`,
+                    // receiptBytes は byte_size 列（アップロードされた元画像のサイズ）を
+                    // 合計する。
+                    //
+                    // 変更前は image_base64 を復号した長さを使っていたが、これは
+                    // naiveResizeSync が1バイトおきに間引いた「表示用画像」の長さであり、
+                    // 元画像でもDBの実消費量でもない中間的な値だった（2MBの写真で
+                    // 元画像 2,048,000 / 変更前の値 1,024,000 / DB実消費 1,501,918）。
+                    // コメントに記された用途「添付漏れ・巨大ファイルの検出用」に対して
+                    // 実態の半分を報告していたことになる。
+                    //
+                    // あわせて2つの問題が解消する:
+                    //   - 不正な base64 で decode() が例外を投げ、集計全体が500になる
+                    //   - image_base64 を全件読み出す為レシート量に比例して重くなる
+                    //     （20件・16MBで約300ms。byte_size なら 0.3ms）
+                    //
+                    // ※値は約2倍になる。image_base64 が空の旧レシートも、byte_size が
+                    //   記録されていれば計上される点も変わる（変更前は常に0）。
+                    'SELECT report_id, COUNT(*) AS cnt, COALESCE(SUM(byte_size), 0) AS bytes ' +
+                    'FROM receipts WHERE report_id = ANY($1) GROUP BY report_id',
                     [reportIds]
                 )
             ]);
