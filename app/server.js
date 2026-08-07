@@ -1568,7 +1568,14 @@ app.get('/api/receipts/:id/raw', async (req, res) => {
             return res.json({ data: { image: row.image_base64 } });
         }
 
-        // 旧システム（2022-03より前）のレシートはファイルサーバから配信する。
+        // image_base64 が空の行はファイルサーバから配信する。
+        // ※このルートの上部にある「2022-03より前のレシートは…」というコメントは
+        //   日付の裏付けが取れていない。コードは日付で分岐しておらず、条件は
+        //   image_base64 が空かどうかのみである。
+        //   なお receipts への書き込みは /api/receipts/upload の1箇所だけで
+        //   （UPDATE / DELETE はアプリ・SQLのどこにも無い）、そこでは必ず
+        //   'data:image/jpeg;base64,' で始まる値を書く。つまり空の行はこの
+        //   アプリでは作られず、移行など外部の経路に由来する。
         // ファイルが無いときの 'error' を拾わないとプロセス全体が停止するため、
         // pipe する前に必ずハンドラを付ける。
         const legacyPath = path.join(LEGACY_RECEIPT_DIR, row.filename);
